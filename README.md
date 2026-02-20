@@ -14,9 +14,12 @@ Use `.env.example` como base e configure no Railway:
 - `DATABASE_URL`
 - `AUTH_SECRET`
 - `AUTH_URL` (URL publica da app, ex: `https://seu-app.up.railway.app`)
+- `AUTH_TRUST_HOST=true`
 - `RESEND_API_KEY` (se usar envio de email)
 - `EMAIL_FROM`
 - `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `ADMIN_NAME` (opcional)
 
 ## Desenvolvimento local
 
@@ -39,7 +42,7 @@ npm run build
 1. Conecte o repositorio no Railway.
 2. Defina as variaveis de ambiente.
 3. O arquivo `railway.json` ja executa no start:
-   - `npm run db:push && npm run start`
+   - `npm run db:push && npm run seed:admin && npm run start`
 4. Deploy.
 
 ## Scripts uteis
