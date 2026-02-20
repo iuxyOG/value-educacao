@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
-    "seed:admin": "node prisma/seed-admin.js",
+    "seed:admin": "npx tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },
   "engines": {
