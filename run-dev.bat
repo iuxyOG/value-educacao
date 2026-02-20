@@ -1,0 +1,3 @@
+@echo off
+echo Starting Value Educacao Development Server...
+npm run dev

@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth Models
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          Role      @default(VENDEDOR)
+  points        Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  enrollments   Enrollment[]
+  progress      Progress[]
+  badges        GamificationBadge[]
+  notes         Note[]
+  quizAttempts  QuizAttempt[]
+  certificates  Certificate[]
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+}
+
+enum Role {
+  ADMIN
+  GESTOR
+  VENDEDOR
+  STUDENT
+}
+
+enum CourseAudience {
+  GESTOR
+  VENDEDOR
+}
+
+model Account {
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// Course Models
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String?
+  coverImage  String?
+  audience    CourseAudience @default(VENDEDOR)
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modules      Module[]
+  enrollments  Enrollment[]
+  certificates Certificate[]
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  title     String
+  order     Int
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons   Lesson[]
+  quiz      Quiz?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lesson {
+  id             String   @id @default(cuid())
+  title          String
+  slug           String   @unique
+  description    String?
+  youtubeVideoId String
+  durationSec    Int?
+  resourcesJson  String?  // JSON string for links/files
+  order          Int
+  moduleId       String
+  module         Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress       Progress[]
+  notes          Note[]
+  quiz           Quiz?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Enrollment {
+  id        String           @id @default(cuid())
+  userId    String
+  courseId  String
+  status    EnrollmentStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  BLOCKED
+}
+
+model Progress {
+  id          String   @id @default(cuid())
+  userId      String
+  lessonId    String
+  completedAt DateTime?
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+}
+
+// --- Advanced Features Models ---
+
+// Gamification
+model GamificationBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  icon        String?
+  earnedAt    DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Notes
+model Note {
+  id          String   @id @default(cuid())
+  userId      String
+  lessonId    String
+  content     String
+  timestamp   Int?     // video timestamp in seconds
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+// Quizzes
+model Quiz {
+  id          String   @id @default(cuid())
+  moduleId    String?   @unique
+  lessonId    String?   @unique
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module      Module?  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lesson      Lesson?  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions   Question[]
+  attempts    QuizAttempt[]
+}
+
+model Question {
+  id          String   @id @default(cuid())
+  quizId      String
+  text        String
+  optionsJson String   // JSON Array of objects [{id, text}]
+  correctOptionId String // ID or index of correct option
+  order       Int      @default(0)
+
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers     QuizAnswer[]
+}
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  quizId      String
+  score       Int?
+  passed      Boolean  @default(false)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers     QuizAnswer[]
+}
+
+model QuizAnswer {
+  id             String   @id @default(cuid())
+  attemptId      String
+  questionId     String
+  selectedOptionId String
+  isCorrect      Boolean
+
+  attempt        QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question       Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+// Certificates
+model Certificate {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    String
+  issuedAt    DateTime @default(now())
+  pdfUrl      String?
+
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+// Community
+model Post {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  content     String
+  category    String   @default("GERAL") // e.g., GERAL, DUVIDAS, CONQUISTAS
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  likes       Like[]
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  postId      String
+  userId      String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  id          String   @id @default(cuid())
+  postId      String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
