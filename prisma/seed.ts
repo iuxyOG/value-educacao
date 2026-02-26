@@ -205,9 +205,9 @@ async function enroll(userId: string, courseId: string) {
 async function main() {
     const adminUser = await upsertUser({
         email: process.env.ADMIN_EMAIL || "dev@value.com",
-        name: "Dev Value",
+        name: process.env.ADMIN_NAME || "Dev Value",
         role: "ADMIN",
-        password: "dev1234",
+        password: process.env.ADMIN_PASSWORD || "dev1234",
     })
 
     const managerUser = await upsertUser({

@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ChevronRight, Play } from "lucide-react"
+import { ChevronRight, Play, CheckCircle2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 const SHARED_COURSE_SLUG = "conheca-empresa"
 
@@ -133,53 +134,96 @@ export default async function CoursesPage() {
                 <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-[#09090b] via-[#09090b]/50 to-transparent pointer-events-none hidden md:block" />
             </section>
 
-            {/* Onboarding Trail */}
-            {onboardingLessons.length > 0 && (
-                <section className="border border-[#ff6a1a]/20 bg-gradient-to-br from-[#ff6a1a]/5 to-transparent rounded-2xl p-8 lg:p-10 shadow-xl relative overflow-hidden">
-                    <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
-                        <div className="md:w-1/3 shrink-0">
-                            <h2 className="text-2xl font-black tracking-tight text-white mb-3 flex items-center gap-3">
-                                <span className="w-8 h-8 rounded-full bg-[#ff6a1a] flex items-center justify-center text-white shadow-[0_0_15px_rgba(255,106,26,0.4)] text-sm">🚀</span>
-                                Trilha de Onboarding
-                            </h2>
-                            <p className="text-zinc-400 text-sm leading-relaxed mb-6">Comece sua jornada por aqui! Preparamos um caminho guiado para você entender a nossa cultura e os pilares do nosso negócio.</p>
-                            <Button asChild className="bg-transparent border-2 border-[#ff6a1a] text-[#ff6a1a] hover:bg-[#ff6a1a] hover:text-white font-bold h-12 px-6">
-                                <Link
-                                    href={onboardingLessons.length > 0 ? `/app/cursos/${onboardingCourse?.slug}/aulas/${onboardingLessons[0].slug}` : "#"}
-                                >
-                                    Ver Curso Completo
-                                </Link>
-                            </Button>
-                        </div>
+            {/* Seus Cursos List (Replacing Onboarding Trail) */}
+            <section className="space-y-6 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-full bg-[#ff6a1a] flex items-center justify-center text-white shadow-[0_0_15px_rgba(255,106,26,0.4)] text-lg">🚀</span>
+                        <span className="uppercase">Trilhas de Conhecimento</span>
+                    </h2>
+                    <Button asChild variant="ghost" className="text-zinc-400 hover:text-white uppercase text-xs font-bold tracking-wider">
+                        <Link href="/app/meus-cursos">Ver Todos</Link>
+                    </Button>
+                </div>
 
-                        <div className="md:w-2/3 w-full">
-                            <div className="flex flex-col gap-4 relative">
-                                {/* Connecting timeline line */}
-                                <div className="hidden sm:block absolute left-6 top-6 bottom-6 w-0.5 bg-white/10 z-0" />
-
-                                {onboardingLessons.slice(0, 3).map((lesson, idx) => (
-                                    <Link
-                                        key={lesson.id}
-                                        href={`/app/cursos/${onboardingCourse?.slug}/aulas/${lesson.slug}`}
-                                        className="relative z-10 flex items-center gap-4 p-4 rounded-xl border border-white/5 bg-[#0a0a0c] hover:bg-white/5 transition-colors group"
-                                    >
-                                        <div className="shrink-0 w-12 h-12 rounded-full border border-white/10 bg-black/50 flex items-center justify-center font-black text-zinc-500 group-hover:border-[#ff6a1a] group-hover:text-[#ff6a1a] transition-all relative">
-                                            {idx + 1}
-                                            {/* Glowing dot effect behind number on hover */}
-                                            <div className="absolute inset-0 bg-[#ff6a1a]/20 rounded-full blur opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-white mb-1 group-hover:text-[#ff6a1a] transition-colors">{lesson.title}</h4>
-                                            <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Etapa {idx + 1}</span>
-                                        </div>
-                                        <ChevronRight size={18} className="text-zinc-600 ml-auto group-hover:text-[#ff6a1a] group-hover:translate-x-1 transition-all" />
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
+                {enrollments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] py-24 text-center">
+                        <h3 className="text-lg font-medium text-zinc-200">Nenhum curso disponível</h3>
+                        <p className="mt-2 text-sm text-zinc-500 max-w-sm">
+                            Seu usuário ainda não possui matrícula nos cursos correspondentes a esse perfil.
+                        </p>
                     </div>
-                </section>
-            )}
+                ) : (
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {enrollments.map((enrollment) => {
+                            const course = enrollment.course
+                            const firstLesson = course.modules[0]?.lessons[0]
+                            const hasAccess = !!firstLesson
+                            const courseHref = hasAccess
+                                ? `/app/cursos/${course.slug}/aulas/${firstLesson.slug}`
+                                : null
+
+                            return (
+                                <Link
+                                    href={courseHref || "#"}
+                                    key={course.id}
+                                    className={cn(
+                                        "group relative flex aspect-[9/16] min-h-[460px] flex-col overflow-hidden rounded-2xl border border-white/5 bg-[#0f0a08] transition-all duration-500",
+                                        hasAccess ? "hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#ff6a1a]/20 hover:border-white/10" : "opacity-75 cursor-not-allowed"
+                                    )}
+                                    aria-disabled={!hasAccess}
+                                >
+                                    {/* Cover Image */}
+                                    {course.coverImage ? (
+                                        <div
+                                            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110 opacity-60 mix-blend-luminosity"
+                                            style={{ backgroundImage: `url(${course.coverImage})` }}
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 bg-gradient-to-b from-zinc-800 to-zinc-900 opacity-40 transition-transform duration-700 group-hover:scale-110" />
+                                    )}
+
+                                    {/* Gradients to create the screenshot look */}
+                                    <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#ff6a1a] via-[#ff6a1a]/20 to-transparent opacity-80 mix-blend-multiply transition-opacity duration-500 group-hover:opacity-100" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-black/40 to-black/80" />
+
+                                    {/* Additional orange glow on hover */}
+                                    <div className="absolute inset-x-0 -bottom-20 h-40 bg-[#ff6a1a] opacity-0 blur-[50px] transition-opacity duration-500 group-hover:opacity-30" />
+
+                                    {/* Content */}
+                                    <div className="relative flex h-full flex-col justify-between p-5 z-10">
+                                        <div className="flex justify-between items-start">
+                                            <span className="rounded bg-black/40 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-zinc-300 backdrop-blur-md border border-white/10">
+                                                {course.slug === SHARED_COURSE_SLUG ? "Geral" : course.audience}
+                                            </span>
+
+                                            {hasAccess ? (
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/10 transition-colors duration-300 group-hover:bg-[#ff6a1a] group-hover:border-[#ff6a1a]">
+                                                    <Play className="h-3.5 w-3.5 fill-white text-white ml-0.5" />
+                                                </div>
+                                            ) : (
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                                                    <CheckCircle2 className="h-4 w-4 text-zinc-600" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-auto text-center w-full">
+                                            <div className="mb-3 mx-auto h-[2px] w-6 bg-[#ff6a1a] rounded-full transition-all duration-300 group-hover:w-16 shadow-[0_0_8px_rgba(255,106,26,0.8)]" />
+                                            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase leading-[1.1] drop-shadow-lg">
+                                                {course.title}
+                                            </h3>
+                                            <p className="mt-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                                {course.modules.length} Módulos
+                                            </p>
+                                        </div>
+                                    </div>
+                                </Link>
+                            )
+                        })}
+                    </div>
+                )}
+            </section>
 
         </div>
     )

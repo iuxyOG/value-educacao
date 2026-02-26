@@ -97,7 +97,7 @@ export default async function MeusCursosPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {enrollments.map((enrollment) => {
                             const course = enrollment.course
                             const firstLesson = course.modules[0]?.lessons[0]
@@ -111,8 +111,8 @@ export default async function MeusCursosPage() {
                                     href={courseHref || "#"}
                                     key={course.id}
                                     className={cn(
-                                        "group relative flex aspect-[3/4] flex-col overflow-hidden rounded-xl border border-white/5 bg-[#0f0a08] transition-all duration-500",
-                                        hasAccess ? "hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#ff6a1a]/10 hover:border-white/10" : "opacity-75 cursor-not-allowed"
+                                        "group relative flex aspect-[9/16] min-h-[460px] flex-col overflow-hidden rounded-2xl border border-white/5 bg-[#0f0a08] transition-all duration-500",
+                                        hasAccess ? "hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#ff6a1a]/20 hover:border-white/10" : "opacity-75 cursor-not-allowed"
                                     )}
                                     aria-disabled={!hasAccess}
                                 >
