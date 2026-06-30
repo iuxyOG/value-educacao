@@ -40,24 +40,37 @@ export async function submitQuizAttempt(params: SubmitAnswerParams) {
                         },
                     },
                 },
+                module: {
+                    include: {
+                        course: {
+                            include: {
+                                enrollments: {
+                                    where: {
+                                        userId: session.user.id,
+                                        status: "ACTIVE",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
         })
 
         if (!quiz) throw new Error("Quiz not found")
         if (quiz.questions.length === 0) throw new Error("Quiz without questions")
 
-        if (quiz.lesson) {
-            const course = quiz.lesson.module.course
-            const hasEnrollment = course.enrollments.length > 0
-            const roleAllowed =
-                session.user.role === "ADMIN" ||
-                course.slug === SHARED_COURSE_SLUG ||
-                session.user.role === course.audience
+        // Suporta quiz de aula e quiz de módulo (antes, quiz de módulo só era
+        // submetível por ADMIN). Validamos matrícula + papel no curso de origem.
+        const course = quiz.lesson?.module.course ?? quiz.module?.course
+        if (!course) throw new Error("Forbidden")
 
-            if (!hasEnrollment || !roleAllowed) {
-                throw new Error("Forbidden")
-            }
-        } else if (session.user.role !== "ADMIN") {
+        const hasEnrollment = course.enrollments.length > 0
+        const roleAllowed =
+            session.user.role === "ADMIN" ||
+            course.slug === SHARED_COURSE_SLUG ||
+            session.user.role === course.audience
+        if (!hasEnrollment || !roleAllowed) {
             throw new Error("Forbidden")
         }
 

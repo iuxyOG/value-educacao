@@ -9,7 +9,9 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { CertificatePrintButton } from "./print-button"
 
-export default async function CertificatePage({ params }: { params: { courseSlug: string } }) {
+const SHARED_COURSE_SLUG = "conheca-empresa"
+
+export default async function CertificatePage({ params }: { params: Promise<{ courseSlug: string }> }) {
     const session = await auth()
     if (!session?.user?.id) return redirect("/login")
 
@@ -22,11 +24,23 @@ export default async function CertificatePage({ params }: { params: { courseSlug
                 include: {
                     lessons: true
                 }
-            }
+            },
+            enrollments: {
+                where: { userId: session.user.id, status: "ACTIVE" },
+            },
         }
     })
 
     if (!course) return notFound()
+
+    // Mesmo critério de acesso das páginas de aula/quiz: precisa de matrícula
+    // ACTIVE e papel/audiência compatível (ou ser ADMIN / curso compartilhado).
+    const hasEnrollment = course.enrollments.length > 0
+    const roleAllowed =
+        session.user.role === "ADMIN" ||
+        course.slug === SHARED_COURSE_SLUG ||
+        session.user.role === course.audience
+    if (!hasEnrollment || !roleAllowed) return notFound()
 
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },

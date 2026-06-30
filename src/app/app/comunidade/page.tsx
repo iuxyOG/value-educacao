@@ -3,34 +3,51 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { PostComposer } from "@/components/community/post-composer"
 import { PostCard } from "@/components/community/post-card"
-import { Users, Search, TrendingUp } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Users, Search, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react"
 
-export default async function CommunityFeedPage() {
+const PAGE_SIZE = 20
+
+export default async function CommunityFeedPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ page?: string }>
+}) {
     const session = await auth()
     if (!session?.user?.id) return redirect("/login")
 
-    const userObj = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { name: true, image: true, role: true }
-    })
+    const { page } = await searchParams
+    const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1)
+    const skip = (currentPage - 1) * PAGE_SIZE
 
-    if (!userObj) return redirect("/login")
+    const [totalPosts, posts] = await Promise.all([
+        prisma.post.count(),
+        prisma.post.findMany({
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: PAGE_SIZE,
+            include: {
+                user: { select: { id: true, name: true, image: true, role: true } },
+                comments: {
+                    orderBy: { createdAt: "asc" },
+                    include: {
+                        user: { select: { id: true, name: true, image: true } },
+                    },
+                },
+                // Contagens via _count em vez de carregar todas as linhas.
+                _count: { select: { likes: true, comments: true } },
+                // Apenas a curtida do usuário atual, para saber se ele já curtiu.
+                likes: {
+                    where: { userId: session.user.id },
+                    select: { id: true },
+                },
+            },
+        }),
+    ])
 
-    // Fetch posts
-    const posts = await prisma.post.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 30, // Limit for now
-        include: {
-            user: { select: { id: true, name: true, image: true, role: true } },
-            likes: { select: { id: true, userId: true } },
-            comments: {
-                orderBy: { createdAt: "asc" },
-                include: {
-                    user: { select: { id: true, name: true, image: true } }
-                }
-            }
-        }
-    })
+    const totalPages = Math.max(1, Math.ceil(totalPosts / PAGE_SIZE))
+    const userInitial = session.user.name ? session.user.name.charAt(0) : "U"
 
     return (
         <div className="max-w-[1540px] mx-auto pb-12">
@@ -46,7 +63,7 @@ export default async function CommunityFeedPage() {
 
                 {/* Main Feed */}
                 <div className="lg:col-span-8">
-                    <PostComposer userInitial={userObj.name ? userObj.name.charAt(0) : "U"} />
+                    <PostComposer userInitial={userInitial} />
 
                     <div className="space-y-6">
                         {posts.length === 0 ? (
@@ -60,11 +77,46 @@ export default async function CommunityFeedPage() {
                                 <PostCard
                                     key={post.id}
                                     post={post}
-                                    currentUserId={session.user.id}
                                 />
                             ))
                         )}
                     </div>
+
+                    {totalPages > 1 && (
+                        <div className="mt-8 flex items-center justify-between gap-4">
+                            {currentPage > 1 ? (
+                                <Button asChild variant="outline" className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white">
+                                    <Link href={`/app/comunidade?page=${currentPage - 1}`}>
+                                        <ChevronLeft className="mr-2 h-4 w-4" />
+                                        Anterior
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <Button variant="outline" disabled className="border-white/5 bg-transparent text-zinc-600">
+                                    <ChevronLeft className="mr-2 h-4 w-4" />
+                                    Anterior
+                                </Button>
+                            )}
+
+                            <span className="text-xs font-medium text-zinc-500">
+                                Página {currentPage} de {totalPages}
+                            </span>
+
+                            {currentPage < totalPages ? (
+                                <Button asChild variant="outline" className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white">
+                                    <Link href={`/app/comunidade?page=${currentPage + 1}`}>
+                                        Próxima
+                                        <ChevronRight className="ml-2 h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <Button variant="outline" disabled className="border-white/5 bg-transparent text-zinc-600">
+                                    Próxima
+                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Sidebar */}

@@ -18,23 +18,25 @@ type PostData = {
     content: string
     createdAt: Date
     user: { id: string; name: string | null; image: string | null; role: string }
-    likes: { id: string; userId: string }[]
+    // Apenas a curtida do usuário atual (se houver) — usada para saber se já curtiu.
+    likes: { id: string }[]
     comments: CommentData[]
+    _count: { likes: number; comments: number }
 }
 
-export function PostCard({ post, currentUserId }: { post: PostData; currentUserId: string }) {
+export function PostCard({ post }: { post: PostData }) {
     const [isCommenting, setIsCommenting] = useState(false)
     const [commentText, setCommentText] = useState("")
     const [isPendingLike, startLikeTransition] = useTransition()
     const [isPendingComment, startCommentTransition] = useTransition()
 
-    const hasLiked = post.likes.some(l => l.userId === currentUserId)
+    const hasLiked = post.likes.length > 0
 
     // Estado base derivado das props (atualizadas via revalidatePath). useOptimistic
     // mostra a curtida na hora e reconcilia com o servidor — antes o useState(props)
     // congelava no mount e o contador divergia do banco.
     const [optimisticLike, applyLike] = useOptimistic(
-        { liked: hasLiked, count: post.likes.length },
+        { liked: hasLiked, count: post._count.likes },
         (state, nextLiked: boolean) => ({
             liked: nextLiked,
             count: state.count + (nextLiked ? 1 : -1),
@@ -45,7 +47,7 @@ export function PostCard({ post, currentUserId }: { post: PostData; currentUserI
         startLikeTransition(async () => {
             applyLike(!optimisticLike.liked)
             await toggleLike(post.id)
-            // Sucesso: revalidatePath atualiza post.likes. Falha: o otimista é revertido.
+            // Sucesso: revalidatePath atualiza as props. Falha: o otimista é revertido.
         })
     }
 
@@ -104,7 +106,7 @@ export function PostCard({ post, currentUserId }: { post: PostData; currentUserI
                     className="flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
                     <MessageSquare size={18} />
-                    {post.comments.length} Comentários
+                    {post._count.comments} Comentários
                 </button>
             </div>
 

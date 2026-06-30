@@ -31,7 +31,7 @@ export default async function AppLayout({
                             "use server"
                             await signOut()
                         }}>
-                            <Button type="submit" variant="ghost" size="icon" className="text-zinc-400">
+                            <Button type="submit" variant="ghost" size="icon" aria-label="Sair" className="text-zinc-400">
                                 <LogOut size={18} />
                             </Button>
                         </form>

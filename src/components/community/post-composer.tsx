@@ -38,7 +38,7 @@ export function PostComposer({ userInitial }: { userInitial: string }) {
                 />
 
                 <div className="flex justify-between items-center pt-2">
-                    <Button variant="ghost" className="text-zinc-500 hover:text-white hover:bg-white/5 h-10 gap-2 px-3">
+                    <Button type="button" variant="ghost" aria-label="Anexar imagem" className="text-zinc-500 hover:text-white hover:bg-white/5 h-10 gap-2 px-3">
                         <ImageIcon size={18} />
                         <span className="hidden sm:inline">Anexar Imagem</span>
                     </Button>

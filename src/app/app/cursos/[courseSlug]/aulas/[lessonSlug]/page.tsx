@@ -7,7 +7,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Menu, PlayCircle } from "lucid
 import { VideoPlayer } from "@/components/video-player"
 import { toggleLessonCompletion } from "@/app/actions"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NotesSection } from "@/components/notes-section"
 import { cn } from "@/lib/utils"
@@ -15,10 +15,10 @@ import { cn } from "@/lib/utils"
 const SHARED_COURSE_SLUG = "conheca-empresa"
 
 interface PageProps {
-    params: {
+    params: Promise<{
         courseSlug: string
         lessonSlug: string
-    }
+    }>
 }
 
 export default async function LessonPage(props: PageProps) {
@@ -208,6 +208,7 @@ export default async function LessonPage(props: PageProps) {
                             </Button>
                         </SheetTrigger>
                         <SheetContent side="left" className="w-[85vw] max-w-sm border-r border-white/5 bg-[#09090b] p-0">
+                            <SheetTitle className="sr-only">Módulos e aulas</SheetTitle>
                             {sidebarContent}
                         </SheetContent>
                     </Sheet>
