@@ -18,7 +18,16 @@ export default async function QuizPage({ params }: { params: { quizId: string } 
         where: { id: quizId },
         include: {
             questions: {
-                orderBy: { order: "asc" }
+                orderBy: { order: "asc" },
+                // Nunca enviar `correctOptionId` ao cliente: selecionamos apenas os
+                // campos necessários para renderizar. A correção é feita no servidor
+                // em submitQuizAttempt (que faz sua própria query com a resposta).
+                select: {
+                    id: true,
+                    text: true,
+                    optionsJson: true,
+                    order: true,
+                },
             },
             lesson: {
                 include: {

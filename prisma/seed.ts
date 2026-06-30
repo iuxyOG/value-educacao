@@ -203,6 +203,14 @@ async function enroll(userId: string, courseId: string) {
 }
 
 async function main() {
+    if (process.env.NODE_ENV === "production") {
+        console.error(
+            "[seed] Recusado em produção: este seed apaga cursos (deleteMany) e cria usuários de teste. " +
+            "Em produção rode apenas 'npm run seed:admin' (prisma/seed-admin.js)."
+        )
+        process.exit(1)
+    }
+
     const adminUser = await upsertUser({
         email: process.env.ADMIN_EMAIL || "dev@value.com",
         name: process.env.ADMIN_NAME || "Dev Value",

@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
-    "seed:admin": "npx tsx prisma/seed.ts",
+    "seed:admin": "node prisma/seed-admin.js",
     "postinstall": "prisma generate"
   },
   "engines": {
@@ -53,7 +53,7 @@
     "date-fns": "^4.1.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.563.0",
-    "next": "16.1.6",
+    "next": "16.2.9",
     "next-auth": "^5.0.0-beta.30",
     "prisma": "^6.4.0",
     "radix-ui": "^1.4.3",
@@ -73,7 +73,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.2.9",
     "shadcn": "^3.8.5",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
