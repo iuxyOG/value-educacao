@@ -1,21 +1,12 @@
 
-import NextAuth, { type DefaultSession } from "next-auth"
-
-declare module "next-auth" {
-    interface Session {
-        user: {
-            role: "ADMIN" | "GESTOR" | "VENDEDOR" | "STUDENT"
-            id: string
-        } & DefaultSession["user"]
-    }
-    interface User {
-        role?: "ADMIN" | "GESTOR" | "VENDEDOR" | "STUDENT"
-    }
-}
+import NextAuth from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
+
+// Hash fixo usado apenas para igualar o tempo de resposta quando o e-mail não existe.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("timing-attack-mitigation", 10)
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma),
@@ -36,14 +27,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     where: { email: credentials.email as string }
                 })
 
-                if (!user || !user.password) return null
-
+                // Sempre executa um bcrypt.compare (contra um hash dummy quando o
+                // usuário não existe) para não vazar a existência do e-mail pelo
+                // tempo de resposta (enumeração de usuários por timing).
+                const passwordHash = user?.password ?? DUMMY_PASSWORD_HASH
                 const isPasswordValid = await bcrypt.compare(
                     credentials.password as string,
-                    user.password
+                    passwordHash
                 )
 
-                if (!isPasswordValid) return null
+                if (!user || !user.password || !isPasswordValid) return null
 
                 return {
                     id: user.id,
