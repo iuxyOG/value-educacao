@@ -61,14 +61,24 @@ export default async function CertificatePage({ params }: { params: { courseSlug
         )
     }
 
-    // Save certificate if it doesn't exist yet
+    // Emite o certificado no primeiro acesso. Usamos upsert (idempotente) em vez de
+    // create para não quebrar com P2002/500 quando dois renders concorrentes
+    // (prefetch, duplo refresh) tentam criar ao mesmo tempo — no Postgres o Prisma
+    // resolve via INSERT ... ON CONFLICT.
     let certificate = user.certificates[0]
     if (!certificate) {
-        certificate = await prisma.certificate.create({
-            data: {
+        certificate = await prisma.certificate.upsert({
+            where: {
+                userId_courseId: {
+                    userId: user.id,
+                    courseId: course.id,
+                },
+            },
+            update: {},
+            create: {
                 userId: user.id,
                 courseId: course.id,
-            }
+            },
         })
     }
 

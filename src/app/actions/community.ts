@@ -1,22 +1,40 @@
 "use server"
 
+import { z } from "zod"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { rateLimit } from "@/lib/rate-limit"
 import { revalidatePath } from "next/cache"
+
+const postSchema = z.object({
+    content: z.string().trim().min(1, "Escreva algo para publicar.").max(5000, "Máximo de 5000 caracteres."),
+})
+
+const commentSchema = z.object({
+    content: z.string().trim().min(1, "Escreva um comentário.").max(2000, "Máximo de 2000 caracteres."),
+})
 
 export async function createPost(content: string) {
     const session = await auth()
     if (!session?.user?.id) throw new Error("Unauthorized")
 
-    if (!content.trim()) return { success: false, error: "Content is required" }
+    const parsed = postSchema.safeParse({ content })
+    if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0]?.message ?? "Conteúdo inválido" }
+    }
 
-    const title = content.length > 50 ? content.slice(0, 47) + "..." : content
+    if (!rateLimit(`post:${session.user.id}`, 10, 60_000)) {
+        return { success: false, error: "Você está publicando rápido demais. Tente novamente em instantes." }
+    }
+
+    const clean = parsed.data.content
+    const title = clean.length > 50 ? clean.slice(0, 47) + "..." : clean
 
     try {
         await prisma.post.create({
             data: {
                 title,
-                content,
+                content: clean,
                 userId: session.user.id
             }
         })
@@ -32,6 +50,10 @@ export async function createPost(content: string) {
 export async function toggleLike(postId: string) {
     const session = await auth()
     if (!session?.user?.id) throw new Error("Unauthorized")
+
+    if (!rateLimit(`like:${session.user.id}`, 60, 60_000)) {
+        return { success: false, error: "Muitas ações em sequência. Aguarde um momento." }
+    }
 
     try {
         const existingLike = await prisma.like.findFirst({
@@ -58,12 +80,19 @@ export async function createComment(postId: string, content: string) {
     const session = await auth()
     if (!session?.user?.id) throw new Error("Unauthorized")
 
-    if (!content.trim()) return { success: false, error: "Content is required" }
+    const parsed = commentSchema.safeParse({ content })
+    if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0]?.message ?? "Comentário inválido" }
+    }
+
+    if (!rateLimit(`comment:${session.user.id}`, 20, 60_000)) {
+        return { success: false, error: "Você está comentando rápido demais. Tente novamente em instantes." }
+    }
 
     try {
         await prisma.comment.create({
             data: {
-                content,
+                content: parsed.data.content,
                 postId,
                 userId: session.user.id
             }
