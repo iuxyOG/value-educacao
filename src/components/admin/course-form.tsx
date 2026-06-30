@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createCourse, updateCourse } from "@/app/admin/actions"
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Loader2 } from "lucide-react"
+import { Loader2, Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type CourseData = {
@@ -51,6 +51,46 @@ export function CourseFormDialog({
     const [coverImage, setCoverImage] = useState(course?.coverImage ?? "")
     const [audience, setAudience] = useState<"GESTOR" | "VENDEDOR">(course?.audience ?? "VENDEDOR")
     const [published, setPublished] = useState(course?.published ?? false)
+    const fileRef = useRef<HTMLInputElement>(null)
+
+    // Redimensiona/compacta no navegador e guarda como data URL (sem storage externo).
+    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        e.target.value = "" // permite re-selecionar o mesmo arquivo
+        if (!file) return
+        if (!file.type.startsWith("image/")) {
+            toast.error("Selecione um arquivo de imagem.")
+            return
+        }
+        const reader = new FileReader()
+        reader.onload = () => {
+            const img = new Image()
+            img.onload = () => {
+                const maxDim = 1000
+                let { width, height } = img
+                if (width > maxDim || height > maxDim) {
+                    const scale = maxDim / Math.max(width, height)
+                    width = Math.round(width * scale)
+                    height = Math.round(height * scale)
+                }
+                const canvas = document.createElement("canvas")
+                canvas.width = width
+                canvas.height = height
+                const ctx = canvas.getContext("2d")
+                if (!ctx) {
+                    toast.error("Não foi possível processar a imagem.")
+                    return
+                }
+                ctx.fillStyle = "#ffffff"
+                ctx.fillRect(0, 0, width, height)
+                ctx.drawImage(img, 0, 0, width, height)
+                setCoverImage(canvas.toDataURL("image/jpeg", 0.7))
+            }
+            img.onerror = () => toast.error("Imagem inválida.")
+            img.src = reader.result as string
+        }
+        reader.readAsDataURL(file)
+    }
 
     const handleSubmit = () => {
         startTransition(async () => {
@@ -99,21 +139,35 @@ export function CourseFormDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="course-cover">URL da capa (https)</Label>
-                        <Input
-                            id="course-cover"
-                            value={coverImage}
-                            onChange={(e) => setCoverImage(e.target.value)}
-                            placeholder="https://..."
-                            className="border-white/10 bg-black/40"
-                        />
+                        <Label>Capa do curso</Label>
+                        <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
+                        {coverImage.startsWith("data:") ? (
+                            <div className="flex items-center gap-3 text-xs">
+                                <span className="font-semibold text-[#ff6a1a]">Imagem enviada ✓</span>
+                                <button type="button" onClick={() => fileRef.current?.click()} className="text-zinc-400 underline hover:text-white">trocar</button>
+                                <button type="button" onClick={() => setCoverImage("")} className="text-zinc-400 underline hover:text-white">remover</button>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => fileRef.current?.click()}
+                                    className="gap-2 border-white/10 bg-transparent text-zinc-300 hover:bg-white/5 hover:text-white"
+                                >
+                                    <Upload size={16} /> Enviar imagem
+                                </Button>
+                                <Input
+                                    value={coverImage}
+                                    onChange={(e) => setCoverImage(e.target.value)}
+                                    placeholder="ou cole uma URL https://..."
+                                    className="border-white/10 bg-black/40"
+                                />
+                            </div>
+                        )}
                         {coverImage ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                                src={coverImage}
-                                alt="Pré-visualização da capa"
-                                className="mt-2 h-28 w-full rounded-lg border border-white/10 object-cover"
-                            />
+                            <img src={coverImage} alt="Pré-visualização da capa" className="mt-2 h-28 w-full rounded-lg border border-white/10 object-cover" />
                         ) : null}
                     </div>
 

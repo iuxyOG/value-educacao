@@ -31,6 +31,8 @@ const courseSchema = z.object({
         .union([
             z.literal(""),
             z.string().trim().url("URL de capa inválida.").startsWith("https://", "A capa deve começar com https://").max(2048),
+            // Imagem enviada pelo admin: data URL gerada/compactada no navegador.
+            z.string().startsWith("data:image/", "Imagem inválida.").max(1_500_000),
         ])
         .optional(),
     audience: z.enum(["GESTOR", "VENDEDOR"]),
