@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useOptimistic, useState, useTransition } from "react"
 import { toggleLike, createComment } from "@/app/actions/community"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -29,20 +29,23 @@ export function PostCard({ post, currentUserId }: { post: PostData; currentUserI
     const [isPendingComment, startCommentTransition] = useTransition()
 
     const hasLiked = post.likes.some(l => l.userId === currentUserId)
-    const [optimisticLike, setOptimisticLike] = useState(hasLiked)
-    const [likeCount, setLikeCount] = useState(post.likes.length)
+
+    // Estado base derivado das props (atualizadas via revalidatePath). useOptimistic
+    // mostra a curtida na hora e reconcilia com o servidor — antes o useState(props)
+    // congelava no mount e o contador divergia do banco.
+    const [optimisticLike, applyLike] = useOptimistic(
+        { liked: hasLiked, count: post.likes.length },
+        (state, nextLiked: boolean) => ({
+            liked: nextLiked,
+            count: state.count + (nextLiked ? 1 : -1),
+        })
+    )
 
     const handleLike = () => {
-        setOptimisticLike(!optimisticLike)
-        setLikeCount(prev => optimisticLike ? prev - 1 : prev + 1)
-
         startLikeTransition(async () => {
-            const res = await toggleLike(post.id)
-            if (!res.success) {
-                // Revert
-                setOptimisticLike(hasLiked)
-                setLikeCount(post.likes.length)
-            }
+            applyLike(!optimisticLike.liked)
+            await toggleLike(post.id)
+            // Sucesso: revalidatePath atualiza post.likes. Falha: o otimista é revertido.
         })
     }
 
@@ -55,7 +58,7 @@ export function PostCard({ post, currentUserId }: { post: PostData; currentUserI
                 setCommentText("")
                 setIsCommenting(false)
             } else {
-                alert("Erro ao enviar comentário.")
+                alert(res.error ?? "Erro ao enviar comentário.")
             }
         })
     }
@@ -77,7 +80,7 @@ export function PostCard({ post, currentUserId }: { post: PostData; currentUserI
                         <p className="text-xs text-zinc-500">{new Date(post.createdAt).toLocaleDateString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
                     </div>
                 </div>
-                <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-white h-8 w-8">
+                <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-white h-8 w-8" aria-label="Mais opções">
                     <MoreHorizontal size={18} />
                 </Button>
             </div>
@@ -90,10 +93,10 @@ export function PostCard({ post, currentUserId }: { post: PostData; currentUserI
                 <button
                     onClick={handleLike}
                     disabled={isPendingLike}
-                    className={`flex items-center gap-2 text-sm font-semibold transition-colors ${optimisticLike ? "text-[#ff6a1a]" : "text-zinc-500 hover:text-zinc-300"}`}
+                    className={`flex items-center gap-2 text-sm font-semibold transition-colors ${optimisticLike.liked ? "text-[#ff6a1a]" : "text-zinc-500 hover:text-zinc-300"}`}
                 >
-                    <Heart size={18} className={optimisticLike ? "fill-current" : ""} />
-                    {likeCount} Curtidas
+                    <Heart size={18} className={optimisticLike.liked ? "fill-current" : ""} />
+                    {optimisticLike.count} Curtidas
                 </button>
 
                 <button

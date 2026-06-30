@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useOptimistic, useState, useTransition } from "react"
 import { createNote, deleteNote } from "@/app/actions/notes"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,6 +18,10 @@ interface NotesSectionProps {
     initialNotes: Note[]
 }
 
+type NoteAction =
+    | { type: "add"; note: Note }
+    | { type: "delete"; id: string }
+
 function formatTimestamp(seconds: number | null) {
     if (seconds === null) return ""
     const m = Math.floor(seconds / 60)
@@ -26,50 +30,54 @@ function formatTimestamp(seconds: number | null) {
 }
 
 export function NotesSection({ lessonId, initialNotes }: NotesSectionProps) {
-    const [notes, setNotes] = useState<Note[]>(initialNotes)
     const [content, setContent] = useState("")
     const [isPending, startTransition] = useTransition()
     // In a real implementation with a video player ref, we could grab the actual timestamp
     const [currentVideoTime, setCurrentVideoTime] = useState<number | null>(null)
 
+    // initialNotes vem do servidor e é atualizado via revalidatePath após cada ação.
+    // useOptimistic aplica a mudança na hora e reconcilia com a lista revalidada
+    // (assim o id temporário é substituído pelo id real e o delete passa a funcionar).
+    const [notes, applyOptimistic] = useOptimistic(
+        initialNotes,
+        (state: Note[], action: NoteAction) => {
+            if (action.type === "add") return [action.note, ...state]
+            return state.filter((n) => n.id !== action.id)
+        }
+    )
+
     const handleCreateNote = () => {
-        if (!content.trim()) return
+        const noteContent = content.trim()
+        if (!noteContent) return
+        const timestamp = currentVideoTime
 
         startTransition(async () => {
-            // Optimistic update
-            const tempId = Math.random().toString()
-            const newNote = {
-                id: tempId,
-                content: content.trim(),
-                timestamp: currentVideoTime,
-                createdAt: new Date(),
-            }
-
-            setNotes(prev => [newNote, ...prev])
+            applyOptimistic({
+                type: "add",
+                note: {
+                    id: `temp-${Date.now()}`,
+                    content: noteContent,
+                    timestamp,
+                    createdAt: new Date(),
+                },
+            })
             setContent("")
 
-            const result = await createNote(lessonId, newNote.content, newNote.timestamp ?? undefined)
+            const result = await createNote(lessonId, noteContent, timestamp ?? undefined)
 
+            // Em caso de falha (validação/limite/sem acesso) o estado otimista é
+            // descartado ao fim da transition; devolvemos o texto para nova tentativa.
             if (!result.success) {
-                // Revert if failed (in a real app we'd fetch again or show error)
-                setNotes(prev => prev.filter(n => n.id !== tempId))
-                setContent(newNote.content)
+                setContent(noteContent)
             }
         })
     }
 
     const handleDeleteNote = (noteId: string) => {
         startTransition(async () => {
-            // Optimistic delete
-            const previousNotes = [...notes]
-            setNotes(prev => prev.filter(n => n.id !== noteId))
-
-            const result = await deleteNote(noteId)
-
-            if (!result.success) {
-                // Revert on failure
-                setNotes(previousNotes)
-            }
+            applyOptimistic({ type: "delete", id: noteId })
+            await deleteNote(noteId)
+            // Sucesso: revalidatePath atualiza a lista base. Falha: o otimista é revertido.
         })
     }
 

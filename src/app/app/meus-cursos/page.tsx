@@ -73,7 +73,10 @@ export default async function MeusCursosPage() {
                 orderBy: { createdAt: "asc" },
             })
         } catch (error) {
+            // Não engolir o erro: registramos e propagamos para o error.tsx,
+            // senão uma falha de banco vira "Nenhum curso" (estado enganoso).
             console.error("DB Error:", error)
+            throw error
         }
     }
 

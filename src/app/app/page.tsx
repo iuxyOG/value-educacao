@@ -74,7 +74,10 @@ export default async function CoursesPage() {
                 orderBy: { createdAt: "asc" },
             })
         } catch (error) {
+            // Não engolir o erro: registramos e propagamos para o error.tsx,
+            // senão uma falha de banco vira "Nenhum curso" (estado enganoso).
             console.error("DB Error:", error)
+            throw error
         }
     }
 
@@ -82,9 +85,6 @@ export default async function CoursesPage() {
     const firstLessonHref = firstEnrollmentWithLesson
         ? `/app/cursos/${firstEnrollmentWithLesson.course.slug}/aulas/${firstEnrollmentWithLesson.course.modules[0].lessons[0].slug}`
         : null
-
-    const onboardingCourse = enrollments.find(e => e.course.slug === SHARED_COURSE_SLUG)?.course
-    const onboardingLessons = onboardingCourse?.modules.flatMap(m => m.lessons) || []
 
     return (
         <div className="space-y-12 pb-12">
