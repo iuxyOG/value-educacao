@@ -24,6 +24,16 @@ interface QuizEngineProps {
     backUrl: string
 }
 
+// optionsJson vem do banco; protege o render contra JSON malformado.
+function parseOptions(optionsJson: string): Option[] {
+    try {
+        const parsed = JSON.parse(optionsJson)
+        return Array.isArray(parsed) ? parsed : []
+    } catch {
+        return []
+    }
+}
+
 export function QuizEngine({ quizId, title, description, questions, backUrl }: QuizEngineProps) {
     const [currentStep, setCurrentStep] = useState(-1) // -1 is intro
     const [answers, setAnswers] = useState<Record<string, string>>({}) // questionId -> optionId
@@ -32,7 +42,7 @@ export function QuizEngine({ quizId, title, description, questions, backUrl }: Q
 
     const questionLimit = questions.length
     const currentQuestion = currentStep >= 0 && currentStep < questionLimit ? questions[currentStep] : null
-    const options: Option[] = currentQuestion ? JSON.parse(currentQuestion.optionsJson) : []
+    const options: Option[] = currentQuestion ? parseOptions(currentQuestion.optionsJson) : []
 
     const handleSelectOption = (optionId: string) => {
         if (!currentQuestion) return

@@ -1,12 +1,13 @@
 import { z } from "zod";
 
+// Apenas o que o runtime da app realmente precisa é obrigatório. As demais
+// (email/admin) são usadas por scripts de seed e ficam opcionais aqui.
 const envSchema = z.object({
-    DATABASE_URL: z.string().url(),
+    DATABASE_URL: z.string().min(1),
     AUTH_SECRET: z.string().min(1),
-    // AUTH_URL: z.string().url().optional(), // Optional in Vercel/Railway
-    RESEND_API_KEY: z.string().min(1),
-    EMAIL_FROM: z.string().email().optional(),
-    ADMIN_EMAIL: z.string().email(),
+    RESEND_API_KEY: z.string().min(1).optional(),
+    EMAIL_FROM: z.string().optional(),
+    ADMIN_EMAIL: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

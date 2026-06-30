@@ -2,6 +2,7 @@
 import NextAuth from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
+import { env } from "@/env"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 
@@ -10,7 +11,7 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync("timing-attack-mitigation", 10)
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma),
-    secret: process.env.AUTH_SECRET,
+    secret: env.AUTH_SECRET,
     trustHost: true,
     session: { strategy: "jwt" },
     providers: [
