@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { CertificatePrintButton } from "./print-button"
-
-const SHARED_COURSE_SLUG = "conheca-empresa"
+import { canAccessCourse } from "@/lib/access"
 
 export default async function CertificatePage({ params }: { params: Promise<{ courseSlug: string }> }) {
     const session = await auth()
@@ -26,21 +25,17 @@ export default async function CertificatePage({ params }: { params: Promise<{ co
                 }
             },
             enrollments: {
-                where: { userId: session.user.id, status: "ACTIVE" },
+                where: { userId: session.user.id, status: "BLOCKED" },
             },
         }
     })
 
     if (!course) return notFound()
 
-    // Mesmo critério de acesso das páginas de aula/quiz: precisa de matrícula
-    // ACTIVE e papel/audiência compatível (ou ser ADMIN / curso compartilhado).
-    const hasEnrollment = course.enrollments.length > 0
-    const roleAllowed =
-        session.user.role === "ADMIN" ||
-        course.slug === SHARED_COURSE_SLUG ||
-        session.user.role === course.audience
-    if (!hasEnrollment || !roleAllowed) return notFound()
+    // Mesmo critério das páginas de aula/quiz (publicado + perfil, ou ADMIN /
+    // curso compartilhado); bloqueia quem tem matrícula BLOCKED.
+    const blocked = course.enrollments.length > 0
+    if (!canAccessCourse(session.user, course, { blocked })) return notFound()
 
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },

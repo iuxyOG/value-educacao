@@ -5,8 +5,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { revalidatePath } from "next/cache"
-
-const SHARED_COURSE_SLUG = "conheca-empresa"
+import { canAccessCourse } from "@/lib/access"
 
 const noteSchema = z.object({
     content: z.string().trim().min(1, "A anotação não pode estar vazia.").max(5000, "Máximo de 5000 caracteres."),
@@ -36,7 +35,7 @@ export async function createNote(lessonId: string, content: string, timestamp?: 
                         course: {
                             include: {
                                 enrollments: {
-                                    where: { userId: session.user.id, status: "ACTIVE" },
+                                    where: { userId: session.user.id, status: "BLOCKED" },
                                 },
                             },
                         },
@@ -48,13 +47,8 @@ export async function createNote(lessonId: string, content: string, timestamp?: 
         if (!lesson) return { success: false, error: "Lesson not found" }
 
         const course = lesson.module.course
-        const hasEnrollment = course.enrollments.length > 0
-        const roleAllowed =
-            session.user.role === "ADMIN" ||
-            course.slug === SHARED_COURSE_SLUG ||
-            session.user.role === course.audience
-
-        if (!hasEnrollment || !roleAllowed) {
+        const blocked = course.enrollments.length > 0
+        if (!canAccessCourse(session.user, course, { blocked })) {
             return { success: false, error: "Forbidden" }
         }
 

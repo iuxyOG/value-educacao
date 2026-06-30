@@ -3,8 +3,7 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-
-const SHARED_COURSE_SLUG = "conheca-empresa"
+import { canAccessCourse } from "@/lib/access"
 
 interface SubmitAnswerParams {
     quizId: string
@@ -31,7 +30,7 @@ export async function submitQuizAttempt(params: SubmitAnswerParams) {
                                         enrollments: {
                                             where: {
                                                 userId: session.user.id,
-                                                status: "ACTIVE",
+                                                status: "BLOCKED",
                                             },
                                         },
                                     },
@@ -47,7 +46,7 @@ export async function submitQuizAttempt(params: SubmitAnswerParams) {
                                 enrollments: {
                                     where: {
                                         userId: session.user.id,
-                                        status: "ACTIVE",
+                                        status: "BLOCKED",
                                     },
                                 },
                             },
@@ -60,17 +59,13 @@ export async function submitQuizAttempt(params: SubmitAnswerParams) {
         if (!quiz) throw new Error("Quiz not found")
         if (quiz.questions.length === 0) throw new Error("Quiz without questions")
 
-        // Suporta quiz de aula e quiz de módulo (antes, quiz de módulo só era
-        // submetível por ADMIN). Validamos matrícula + papel no curso de origem.
+        // Suporta quiz de aula e quiz de módulo: valida acesso (publicado + perfil)
+        // no curso de origem e bloqueio explícito (matrícula BLOCKED).
         const course = quiz.lesson?.module.course ?? quiz.module?.course
         if (!course) throw new Error("Forbidden")
 
-        const hasEnrollment = course.enrollments.length > 0
-        const roleAllowed =
-            session.user.role === "ADMIN" ||
-            course.slug === SHARED_COURSE_SLUG ||
-            session.user.role === course.audience
-        if (!hasEnrollment || !roleAllowed) {
+        const blocked = course.enrollments.length > 0
+        if (!canAccessCourse(session.user, course, { blocked })) {
             throw new Error("Forbidden")
         }
 

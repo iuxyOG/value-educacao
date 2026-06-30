@@ -19,7 +19,7 @@ export default async function AppLayout({
     return (
         <div className="flex min-h-screen bg-[#09090b] text-zinc-50 font-sans">
             {/* Desktop Sidebar */}
-            <Sidebar user={{ name: session.user.name, email: session.user.email }} />
+            <Sidebar user={{ name: session.user.name, email: session.user.email }} role={session.user.role} />
 
             {/* Main Content Area */}
             <main className="flex-1 lg:pl-64 flex flex-col min-w-0">

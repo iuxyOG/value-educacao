@@ -5,8 +5,7 @@ import { QuizEngine } from "@/components/quiz-engine"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Trophy, ArrowLeft } from "lucide-react"
-
-const SHARED_COURSE_SLUG = "conheca-empresa"
+import { canAccessCourse } from "@/lib/access"
 
 export default async function QuizPage({ params }: { params: Promise<{ quizId: string }> }) {
     const session = await auth()
@@ -38,7 +37,7 @@ export default async function QuizPage({ params }: { params: Promise<{ quizId: s
                                     enrollments: {
                                         where: {
                                             userId: session.user.id,
-                                            status: "ACTIVE",
+                                            status: "BLOCKED",
                                         },
                                     },
                                 },
@@ -54,7 +53,7 @@ export default async function QuizPage({ params }: { params: Promise<{ quizId: s
                             enrollments: {
                                 where: {
                                     userId: session.user.id,
-                                    status: "ACTIVE",
+                                    status: "BLOCKED",
                                 },
                             },
                         },
@@ -71,16 +70,12 @@ export default async function QuizPage({ params }: { params: Promise<{ quizId: s
     if (!quiz) return notFound()
 
     // Suporta quiz de aula (quiz.lesson) e quiz de módulo (quiz.module): em ambos
-    // os casos validamos matrícula ACTIVE + papel/audiência no curso correspondente.
+    // validamos acesso (publicado + perfil) no curso de origem e bloqueio explícito.
     const course = quiz.lesson?.module.course ?? quiz.module?.course
     if (!course) return notFound()
 
-    const hasEnrollment = course.enrollments.length > 0
-    const roleAllowed =
-        session.user.role === "ADMIN" ||
-        course.slug === SHARED_COURSE_SLUG ||
-        session.user.role === course.audience
-    if (!hasEnrollment || !roleAllowed) return notFound()
+    const blocked = course.enrollments.length > 0
+    if (!canAccessCourse(session.user, course, { blocked })) return notFound()
 
     const backUrl = quiz.lesson
         ? `/app/cursos/${quiz.lesson.module.course.slug}/aulas/${quiz.lesson.slug}`

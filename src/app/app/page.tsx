@@ -5,85 +5,28 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ChevronRight, Play, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const SHARED_COURSE_SLUG = "conheca-empresa"
+import { SHARED_COURSE_SLUG, visibleCoursesWhere } from "@/lib/access"
 
 export default async function CoursesPage() {
     const session = await auth()
     if (!session?.user?.id) return redirect("/login")
 
-    const isAdmin = session.user.role === "ADMIN"
-    const allowedAudience = session.user.role === "GESTOR"
-        ? "GESTOR"
-        : session.user.role === "VENDEDOR"
-            ? "VENDEDOR"
-            : null
-
-    let enrollments: Array<{
-        course: {
-            id: string
-            title: string
-            slug: string
-            description: string | null
-            coverImage: string | null
-            audience: "GESTOR" | "VENDEDOR"
-            modules: Array<{
-                id: string
-                order: number
-                lessons: Array<{ id: string; slug: string; title: string; order: number }>
-            }>
-        }
-    }> = []
-
-    if (isAdmin || allowedAudience) {
-        try {
-            const whereFilter = isAdmin
-                ? {
-                    userId: session.user.id,
-                    status: "ACTIVE" as const,
-                    course: { published: true },
-                }
-                : {
-                    userId: session.user.id,
-                    status: "ACTIVE" as const,
-                    course: {
-                        published: true,
-                        OR: [
-                            { audience: allowedAudience as "GESTOR" | "VENDEDOR" },
-                            { slug: SHARED_COURSE_SLUG },
-                        ],
-                    },
-                }
-
-            enrollments = await prisma.enrollment.findMany({
-                where: whereFilter,
+    const courses = await prisma.course.findMany({
+        where: visibleCoursesWhere(session.user),
+        include: {
+            modules: {
+                orderBy: { order: "asc" },
                 include: {
-                    course: {
-                        include: {
-                            modules: {
-                                orderBy: { order: "asc" },
-                                include: {
-                                    lessons: {
-                                        orderBy: { order: "asc" },
-                                    },
-                                },
-                            },
-                        },
-                    },
+                    lessons: { orderBy: { order: "asc" } },
                 },
-                orderBy: { createdAt: "asc" },
-            })
-        } catch (error) {
-            // Não engolir o erro: registramos e propagamos para o error.tsx,
-            // senão uma falha de banco vira "Nenhum curso" (estado enganoso).
-            console.error("DB Error:", error)
-            throw error
-        }
-    }
+            },
+        },
+        orderBy: { createdAt: "asc" },
+    })
 
-    const firstEnrollmentWithLesson = enrollments.find((enrollment) => enrollment.course.modules[0]?.lessons[0])
-    const firstLessonHref = firstEnrollmentWithLesson
-        ? `/app/cursos/${firstEnrollmentWithLesson.course.slug}/aulas/${firstEnrollmentWithLesson.course.modules[0].lessons[0].slug}`
+    const firstCourseWithLesson = courses.find((course) => course.modules[0]?.lessons[0])
+    const firstLessonHref = firstCourseWithLesson
+        ? `/app/cursos/${firstCourseWithLesson.slug}/aulas/${firstCourseWithLesson.modules[0].lessons[0].slug}`
         : null
 
     return (
@@ -146,17 +89,16 @@ export default async function CoursesPage() {
                     </Button>
                 </div>
 
-                {enrollments.length === 0 ? (
+                {courses.length === 0 ? (
                     <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] py-24 text-center">
                         <h3 className="text-lg font-medium text-zinc-200">Nenhum curso disponível</h3>
                         <p className="mt-2 text-sm text-zinc-500 max-w-sm">
-                            Seu usuário ainda não possui matrícula nos cursos correspondentes a esse perfil.
+                            Ainda não há cursos publicados para o seu perfil.
                         </p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {enrollments.map((enrollment) => {
-                            const course = enrollment.course
+                        {courses.map((course) => {
                             const firstLesson = course.modules[0]?.lessons[0]
                             const hasAccess = !!firstLesson
                             const courseHref = hasAccess

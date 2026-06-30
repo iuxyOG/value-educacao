@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { Trophy, Clock, BookOpen, Target, Flame, ChevronRight, Award, Download } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { visibleCoursesWhere } from "@/lib/access"
 
 // Calculate hours and minutes from seconds
 function formatDuration(totalSeconds: number) {
@@ -26,19 +27,6 @@ export default async function ProfileDashboardPage() {
                     lesson: true,
                 },
             },
-            enrollments: {
-                include: {
-                    course: {
-                        include: {
-                            modules: {
-                                include: {
-                                    lessons: true,
-                                },
-                            },
-                        },
-                    },
-                },
-            },
             badges: true,
             certificates: {
                 include: {
@@ -50,16 +38,22 @@ export default async function ProfileDashboardPage() {
 
     if (!user) return redirect("/login")
 
+    // Cursos visíveis ao usuário (publicado + perfil) — base dos contadores, já que
+    // a matrícula não é mais a porta de acesso.
+    const courses = await prisma.course.findMany({
+        where: visibleCoursesWhere(session.user),
+        include: { modules: { include: { lessons: true } } },
+    })
+
     // Calculate metrics
     const completedLessons = user.progress.filter(p => p.completedAt)
     const totalStudySeconds = completedLessons.reduce((acc, p) => acc + (p.lesson.durationSec || 0), 0)
 
-    const coursesEnrolled = user.enrollments.length
+    const coursesEnrolled = courses.length
     let coursesCompleted = 0
 
     // Count completed courses
-    user.enrollments.forEach(enrollment => {
-        const course = enrollment.course
+    courses.forEach(course => {
         const totalLessonsInCourse = course.modules.reduce((acc, m) => acc + m.lessons.length, 0)
 
         const completedInCourse = completedLessons.filter(p =>
@@ -208,27 +202,23 @@ export default async function ProfileDashboardPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {user.certificates.map(cert => {
-                            const relatedEnrollment = user.enrollments.find(e => e.courseId === cert.courseId)
-                            if (!relatedEnrollment) return null
-                            return (
-                                <div key={cert.id} className="border border-white/10 bg-white/[0.02] rounded-xl p-5 flex flex-col transition-colors hover:bg-white/[0.04] hover:border-[#ff6a1a]/30 group">
-                                    <h4 className="font-bold text-white mb-2 leading-tight">{relatedEnrollment.course.title}</h4>
-                                    <p className="text-xs text-zinc-500 font-medium mb-6">
-                                        Emitido em {new Date(cert.issuedAt).toLocaleDateString("pt-BR")}
-                                    </p>
+                        {user.certificates.map(cert => (
+                            <div key={cert.id} className="border border-white/10 bg-white/[0.02] rounded-xl p-5 flex flex-col transition-colors hover:bg-white/[0.04] hover:border-[#ff6a1a]/30 group">
+                                <h4 className="font-bold text-white mb-2 leading-tight">{cert.course.title}</h4>
+                                <p className="text-xs text-zinc-500 font-medium mb-6">
+                                    Emitido em {new Date(cert.issuedAt).toLocaleDateString("pt-BR")}
+                                </p>
 
-                                    <div className="mt-auto">
-                                        <Button asChild variant="outline" className="w-full bg-[#ff6a1a]/10 border-[#ff6a1a]/20 text-[#ff6a1a] hover:bg-[#ff6a1a]/20 hover:text-[#ff6a1a] font-semibold gap-2">
-                                            <Link href={`/app/certificados/${relatedEnrollment.course.slug}`}>
-                                                <Download size={16} />
-                                                Visualizar Certificado
-                                            </Link>
-                                        </Button>
-                                    </div>
+                                <div className="mt-auto">
+                                    <Button asChild variant="outline" className="w-full bg-[#ff6a1a]/10 border-[#ff6a1a]/20 text-[#ff6a1a] hover:bg-[#ff6a1a]/20 hover:text-[#ff6a1a] font-semibold gap-2">
+                                        <Link href={`/app/certificados/${cert.course.slug}`}>
+                                            <Download size={16} />
+                                            Visualizar Certificado
+                                        </Link>
+                                    </Button>
                                 </div>
-                            )
-                        })}
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>

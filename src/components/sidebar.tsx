@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
-import { Home, Users, Bookmark, Bell, LayoutGrid, LogOut } from "lucide-react"
+import { Home, Users, Bookmark, Bell, LayoutGrid, LogOut, Shield } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -13,9 +13,10 @@ interface SidebarProps {
         name?: string | null
         email?: string | null
     }
+    role?: string
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, role }: SidebarProps) {
     const pathname = usePathname()
 
     const navItems = [
@@ -61,6 +62,21 @@ export function Sidebar({ user }: SidebarProps) {
                             </Link>
                         )
                     })}
+
+                    {role === "ADMIN" && (
+                        <Link
+                            href="/admin"
+                            className={cn(
+                                "group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all border-l-2",
+                                pathname.startsWith("/admin")
+                                    ? "bg-white/[0.03] text-white border-[#ff6a1a]"
+                                    : "text-zinc-400 hover:text-white hover:bg-white/[0.02] border-transparent"
+                            )}
+                        >
+                            <Shield size={18} className="group-hover:text-zinc-300" />
+                            Admin
+                        </Link>
+                    )}
                 </div>
 
                 <div className="space-y-1 pt-2">

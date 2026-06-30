@@ -11,8 +11,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NotesSection } from "@/components/notes-section"
 import { cn } from "@/lib/utils"
-
-const SHARED_COURSE_SLUG = "conheca-empresa"
+import { canAccessCourse } from "@/lib/access"
 
 interface PageProps {
     params: Promise<{
@@ -36,7 +35,7 @@ export default async function LessonPage(props: PageProps) {
                             enrollments: {
                                 where: {
                                     userId: session.user.id,
-                                    status: "ACTIVE",
+                                    status: "BLOCKED",
                                 },
                             },
                             modules: {
@@ -76,13 +75,8 @@ export default async function LessonPage(props: PageProps) {
     if (!lesson || lesson.module.course.slug !== params.courseSlug) return notFound()
 
     const course = lesson.module.course
-    const hasEnrollment = course.enrollments.length > 0
-    const roleAllowed =
-        session.user.role === "ADMIN" ||
-        course.slug === SHARED_COURSE_SLUG ||
-        session.user.role === course.audience
-
-    if (!hasEnrollment || !roleAllowed) return notFound()
+    const blocked = course.enrollments.length > 0
+    if (!canAccessCourse(session.user, course, { blocked })) return notFound()
 
     const isCompleted = lesson.progress.length > 0 && !!lesson.progress[0].completedAt
     const allLessons = course.modules.flatMap((moduleItem) => moduleItem.lessons)

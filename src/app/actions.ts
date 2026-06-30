@@ -4,8 +4,7 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-
-const SHARED_COURSE_SLUG = "conheca-empresa"
+import { canAccessCourse } from "@/lib/access"
 
 export async function toggleLessonCompletion(lessonId: string, path: string) {
     const session = await auth()
@@ -22,7 +21,7 @@ export async function toggleLessonCompletion(lessonId: string, path: string) {
                                 enrollments: {
                                     where: {
                                         userId: session.user.id,
-                                        status: "ACTIVE",
+                                        status: "BLOCKED",
                                     },
                                 },
                             },
@@ -34,13 +33,8 @@ export async function toggleLessonCompletion(lessonId: string, path: string) {
 
         if (!lesson) return { error: "Lesson not found" }
 
-        const hasEnrollment = lesson.module.course.enrollments.length > 0
-        const roleAllowed =
-            session.user.role === "ADMIN" ||
-            lesson.module.course.slug === SHARED_COURSE_SLUG ||
-            session.user.role === lesson.module.course.audience
-
-        if (!hasEnrollment || !roleAllowed) {
+        const blocked = lesson.module.course.enrollments.length > 0
+        if (!canAccessCourse(session.user, lesson.module.course, { blocked })) {
             return { error: "Forbidden" }
         }
 
