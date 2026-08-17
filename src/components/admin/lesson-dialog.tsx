@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { createLesson, updateLesson } from "@/app/admin/actions"
-import { extractYouTubeId } from "@/lib/youtube"
+import { extractVideoInfo, storedIdToInfo } from "@/lib/youtube"
 import {
     Dialog,
     DialogContent,
@@ -40,13 +40,18 @@ export function LessonDialog({
     const [isPending, startTransition] = useTransition()
     const [title, setTitle] = useState(lesson?.title ?? "")
     const [description, setDescription] = useState(lesson?.description ?? "")
-    const [youtubeUrl, setYoutubeUrl] = useState(lesson ? `https://youtu.be/${lesson.youtubeVideoId}` : "")
+    const [videoUrl, setVideoUrl] = useState(() => {
+        if (!lesson) return ""
+        const info = storedIdToInfo(lesson.youtubeVideoId)
+        if (info?.type === "drive") return `https://drive.google.com/file/d/${info.id}/view`
+        return `https://youtu.be/${lesson.youtubeVideoId}`
+    })
 
-    const previewId = extractYouTubeId(youtubeUrl)
+    const videoInfo = extractVideoInfo(videoUrl)
 
     const handleSubmit = () => {
         startTransition(async () => {
-            const input = { title, description, youtubeUrl }
+            const input = { title, description, videoUrl }
             const res =
                 mode === "create"
                     ? await createLesson(moduleId!, input)
@@ -80,24 +85,26 @@ export function LessonDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="lesson-yt">URL do vídeo (YouTube, não listado)</Label>
+                        <Label htmlFor="lesson-video">URL do vídeo (YouTube ou Google Drive)</Label>
                         <Input
-                            id="lesson-yt"
-                            value={youtubeUrl}
-                            onChange={(e) => setYoutubeUrl(e.target.value)}
-                            placeholder="https://www.youtube.com/watch?v=..."
+                            id="lesson-video"
+                            value={videoUrl}
+                            onChange={(e) => setVideoUrl(e.target.value)}
+                            placeholder="https://youtu.be/... ou https://drive.google.com/file/d/..."
                             className="border-white/10 bg-black/40"
                         />
-                        {youtubeUrl && !previewId ? (
-                            <p className="text-xs text-red-400">Não reconhecemos esse link do YouTube.</p>
+                        {videoUrl && !videoInfo ? (
+                            <p className="text-xs text-red-400">Link não reconhecido. Use YouTube ou Google Drive.</p>
                         ) : null}
-                        {previewId ? (
+                        {videoInfo?.type === "youtube" ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                                src={`https://img.youtube.com/vi/${previewId}/hqdefault.jpg`}
+                                src={`https://img.youtube.com/vi/${videoInfo.id}/hqdefault.jpg`}
                                 alt="Pré-visualização do vídeo"
                                 className="mt-2 aspect-video w-full rounded-lg border border-white/10 object-cover"
                             />
+                        ) : videoInfo?.type === "drive" ? (
+                            <p className="text-xs text-emerald-400 mt-1">Link do Google Drive reconhecido.</p>
                         ) : null}
                     </div>
 
@@ -115,7 +122,7 @@ export function LessonDialog({
                 <DialogFooter>
                     <Button
                         onClick={handleSubmit}
-                        disabled={isPending || !title.trim() || !previewId}
+                        disabled={isPending || !title.trim() || !videoInfo}
                         className="bg-[#ff6a1a] text-white hover:bg-[#ff6a1a]/90 font-semibold gap-2"
                     >
                         {isPending ? <Loader2 size={16} className="animate-spin" /> : null}

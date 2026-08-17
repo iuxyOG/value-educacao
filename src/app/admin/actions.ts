@@ -5,7 +5,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { uniqueCourseSlug, uniqueLessonSlug } from "@/lib/slug"
-import { extractYouTubeId } from "@/lib/youtube"
+import { extractVideoInfo } from "@/lib/youtube"
 
 type ActionResult = { success: true } | { success: false; error: string }
 
@@ -46,7 +46,7 @@ const moduleSchema = z.object({
 const lessonSchema = z.object({
     title: z.string().trim().min(2, "Título muito curto.").max(160, "Título muito longo."),
     description: z.string().trim().max(5000, "Descrição muito longa.").optional(),
-    youtubeUrl: z.string().trim().min(1, "Cole a URL do vídeo do YouTube."),
+    videoUrl: z.string().trim().min(1, "Cole a URL do vídeo (YouTube ou Google Drive)."),
     durationSec: z.number().int().positive().max(86400).optional(),
 })
 
@@ -215,8 +215,8 @@ export async function createLesson(moduleId: string, input: LessonInput): Promis
     const parsed = lessonSchema.safeParse(input)
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" }
 
-    const videoId = extractYouTubeId(parsed.data.youtubeUrl)
-    if (!videoId) return { success: false, error: "URL do YouTube inválida." }
+    const videoInfo = extractVideoInfo(parsed.data.videoUrl)
+    if (!videoInfo) return { success: false, error: "URL inválida. Use YouTube ou Google Drive." }
 
     try {
         const moduleRecord = await prisma.module.findUnique({ where: { id: moduleId }, select: { courseId: true } })
@@ -229,7 +229,7 @@ export async function createLesson(moduleId: string, input: LessonInput): Promis
                 title: parsed.data.title,
                 slug,
                 description: parsed.data.description || null,
-                youtubeVideoId: videoId,
+                youtubeVideoId: videoInfo.id,
                 durationSec: parsed.data.durationSec ?? null,
                 moduleId,
                 order: (last?.order ?? 0) + 1,
@@ -249,8 +249,8 @@ export async function updateLesson(lessonId: string, input: LessonInput): Promis
     const parsed = lessonSchema.safeParse(input)
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" }
 
-    const videoId = extractYouTubeId(parsed.data.youtubeUrl)
-    if (!videoId) return { success: false, error: "URL do YouTube inválida." }
+    const videoInfo = extractVideoInfo(parsed.data.videoUrl)
+    if (!videoInfo) return { success: false, error: "URL inválida. Use YouTube ou Google Drive." }
 
     try {
         // Slug mantido estável na edição (não regenerar).
@@ -259,7 +259,7 @@ export async function updateLesson(lessonId: string, input: LessonInput): Promis
             data: {
                 title: parsed.data.title,
                 description: parsed.data.description || null,
-                youtubeVideoId: videoId,
+                youtubeVideoId: videoInfo.id,
                 durationSec: parsed.data.durationSec ?? null,
             },
             select: { module: { select: { courseId: true } } },
